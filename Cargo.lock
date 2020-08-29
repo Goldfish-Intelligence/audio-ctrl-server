@@ -63,6 +63,7 @@ dependencies = [
  "dns-sd",
  "serde",
  "serde_json",
+ "termion",
  "tui",
 ]
 

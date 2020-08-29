@@ -145,4 +145,9 @@ impl ClientManager {
             None => Err("No session found")?,
         }
     }
+
+    pub fn get_all_clients(& self) -> Vec<ClientState> {
+        let connected_clients = self.connected_clients.read().unwrap();
+        connected_clients.values().cloned().collect()
+    }
 }
