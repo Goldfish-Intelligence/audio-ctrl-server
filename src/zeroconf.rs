@@ -1,20 +1,18 @@
 // announce tcp_json address via dns-sd
 use std::thread;
 use std::time::Duration;
-use dns_sd::DNSService;
+use astro_dnssd::register::DNSServiceBuilder;
 
 pub fn start(port: u16) {
     thread::spawn(move || {
-        println!("Starting dns-sd service announce on port: {} ...", port);
-        DNSService::register(Some("Gecko Audio Streaming"),
-                                   "_geckoaudio._tcp",
-                                   None,
-                                   None,
-                                   port,
-                                   &[""]).unwrap();
-
+        let mut service = DNSServiceBuilder::new("_geckoaudio._tcp")
+            .with_port(port)
+            .with_name("Gecko Audio Streaming")
+            .build()
+            .unwrap();
+        service.register(|_reply| ());
         loop {
-            thread::sleep(Duration::from_secs(10));
+            service.process_result();
         }
     });
 }
