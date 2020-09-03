@@ -1,7 +1,7 @@
 extern crate gecko_audio_ctrl;
-use gecko_audio_ctrl::{client_ctrl, ui};
-use gecko_audio_ctrl::zeroconf;
 use gecko_audio_ctrl::client_state::{ClientManager, ClientStateChange};
+use gecko_audio_ctrl::zeroconf;
+use gecko_audio_ctrl::{client_ctrl, ui};
 use std::thread;
 
 fn main() {

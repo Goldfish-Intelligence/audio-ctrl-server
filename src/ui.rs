@@ -1,16 +1,16 @@
+use crate::client_state::ClientManager;
+use crate::ui::Redraw::ClientState;
+use std::sync::mpsc;
+use std::time::Duration;
 use std::{io, thread};
+use termion::event::Key;
+use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
-use tui::Terminal;
-use termion::event::Key;
-use tui::widgets::{Table, Row, Block, Borders};
-use std::sync::mpsc;
-use termion::input::TermRead;
 use tui::layout::{Constraint, Layout};
-use std::time::Duration;
-use crate::ui::Redraw::ClientState;
-use crate::client_state::ClientManager;
+use tui::widgets::{Block, Borders, Row, Table};
+use tui::Terminal;
 
 enum Redraw {
     Key(Key),
@@ -34,47 +34,56 @@ pub fn run(client_manager: ClientManager) {
     });
 
     let client_tx = tx.clone();
-    thread::spawn(move || {
-        loop {
-            thread::sleep(Duration::from_secs(2));
-            client_tx.send(ClientState).unwrap();
-        }
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(2));
+        client_tx.send(ClientState).unwrap();
     });
 
     let mut rows = vec![vec![]];
 
     loop {
-        terminal.draw(|f| {
-            let chunks = Layout::default()
-                .constraints([Constraint::Percentage(100)].as_ref()
-                )
-                .split(f.size());
+        terminal
+            .draw(|f| {
+                let chunks = Layout::default()
+                    .constraints([Constraint::Percentage(100)].as_ref())
+                    .split(f.size());
 
-            let table = Table::new(
-                [
-                    "Name", "Power (Last update)", "Audio In", "Audio Out", "Port In (Repair)",
-                    "Port Out (Repair)", "Last ping"].iter(),
-                rows.iter().map(|i| Row::Data(i.iter()))
-            )
-            .block(Block::default().title("Connected Clients")
-                .borders(Borders::ALL))
-            .widths(&[
-                Constraint::Percentage(14),
-                Constraint::Percentage(14),
-                Constraint::Percentage(14),
-                Constraint::Percentage(14),
-                Constraint::Percentage(14),
-                Constraint::Percentage(14),
-                Constraint::Percentage(14),
-            ]);
-            f.render_widget(table, chunks[0]);
-        }).unwrap();
+                let table = Table::new(
+                    [
+                        "Name",
+                        "Power (Last update)",
+                        "Audio In",
+                        "Audio Out",
+                        "Port In (Repair)",
+                        "Port Out (Repair)",
+                        "Last ping",
+                    ]
+                    .iter(),
+                    rows.iter().map(|i| Row::Data(i.iter())),
+                )
+                .block(
+                    Block::default()
+                        .title("Connected Clients")
+                        .borders(Borders::ALL),
+                )
+                .widths(&[
+                    Constraint::Percentage(14),
+                    Constraint::Percentage(14),
+                    Constraint::Percentage(14),
+                    Constraint::Percentage(14),
+                    Constraint::Percentage(14),
+                    Constraint::Percentage(14),
+                    Constraint::Percentage(14),
+                ]);
+                f.render_widget(table, chunks[0]);
+            })
+            .unwrap();
 
         if let Ok(input) = rx.try_recv() {
             match input {
                 Redraw::Key(Key::Char('q')) => {
                     break;
-                },
+                }
                 Redraw::ClientState => {
                     rows.clear();
                     rows.extend(client_manager.get_all_clients().iter().map(|i| {
@@ -132,18 +141,28 @@ pub fn run(client_manager: ClientManager) {
                             // Port In (Repair)
                             format!(
                                 "{} ({})",
-                                i.send_audio_port.map(|f| f.to_string()).unwrap_or("?".to_string()),
-                                i.send_repair_port.map(|f| f.to_string()).unwrap_or("?".to_string())),
+                                i.send_audio_port
+                                    .map(|f| f.to_string())
+                                    .unwrap_or("?".to_string()),
+                                i.send_repair_port
+                                    .map(|f| f.to_string())
+                                    .unwrap_or("?".to_string())
+                            ),
                             // Port Out (Repair)
                             format!(
                                 "{} ({})",
-                                i.recv_audio_port.map(|f| f.to_string()).unwrap_or("?".to_string()),
-                                i.recv_repair_port.map(|f| f.to_string()).unwrap_or("?".to_string())),
+                                i.recv_audio_port
+                                    .map(|f| f.to_string())
+                                    .unwrap_or("?".to_string()),
+                                i.recv_repair_port
+                                    .map(|f| f.to_string())
+                                    .unwrap_or("?".to_string())
+                            ),
                             // Last Ping
-                            "-".to_string()
+                            "-".to_string(),
                         ]
                     }));
-                },
+                }
                 _ => {}
             }
         }

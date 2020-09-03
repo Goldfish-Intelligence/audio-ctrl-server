@@ -1,7 +1,6 @@
 // announce tcp_json address via dns-sd
-use std::thread;
-use std::time::Duration;
 use astro_dnssd::register::DNSServiceBuilder;
+use std::thread;
 
 pub fn start(port: u16) {
     thread::spawn(move || {
