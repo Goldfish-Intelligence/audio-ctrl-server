@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::HashMap;
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
 use std::{io, thread};
 
@@ -34,7 +35,8 @@ enum MessagesFromServer {
 }
 
 pub fn run(port: u16, client_manager: ClientManager) {
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
+    let listener_v4 = TcpListener::bind(format!("0.0.0.0:{}", port)).unwrap();
+    let listener_v6 = TcpListener::bind(format!("[::]:{}", port)).unwrap();
 
     let send_streams: Arc<RwLock<HashMap<SocketAddr, TcpStream>>> = Default::default();
 
@@ -44,7 +46,24 @@ pub fn run(port: u16, client_manager: ClientManager) {
         handle_client_state_change(state_change_send_streams, state_change_client_manager);
     });
 
-    for stream in listener.incoming() {
+    let (tx, rx) = channel();
+
+    let v4_tx = tx.clone();
+    thread::spawn(move || {
+        for stream in listener_v4.incoming() {
+            v4_tx.send(stream).unwrap();
+        }
+    });
+
+    let v6_tx = tx.clone();
+    thread::spawn(move || {
+        for stream in listener_v6.incoming() {
+            v6_tx.send(stream).unwrap();
+        }
+    });
+
+    loop {
+        let stream = rx.recv().unwrap();
         let client_manager = client_manager.clone();
         let send_streams = send_streams.clone();
         thread::spawn(move || {
