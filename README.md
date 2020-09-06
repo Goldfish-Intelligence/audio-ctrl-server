@@ -20,12 +20,6 @@ Lets describe what this server does:
 
 ## Regarding some architecture choices
 
-When a configuration file is changed, the changed setting is send to the android app. At this moment
-the server still thinks of the previous value of being active. It is expected that the client
-sends the new status back to the server to confirm that it has accepted the change. Now the same 
-execution path is used as if the client initiated the change. Next the information in the text user
-interface is updated.
-
 Upon establishing a connection a client should send a hello message containing a unique device
 identifier. It is mainly used to give the persisted json config file a name. As such it should be
 compatible with common file systems. Please also note. This enforces that the client will only
