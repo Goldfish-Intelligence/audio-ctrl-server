@@ -1,16 +1,17 @@
 extern crate gecko_audio_ctrl;
-use gecko_audio_ctrl::client_state::{ClientManager, ClientStateChange};
+use gecko_audio_ctrl::client_state::ClientManager;
+use gecko_audio_ctrl::tcp_json;
+use gecko_audio_ctrl::ui;
 use gecko_audio_ctrl::zeroconf;
-use gecko_audio_ctrl::{client_ctrl, ui};
 use std::thread;
 
 fn main() {
-    let mut client_manager = ClientManager::new();
+    let client_manager = ClientManager::new();
     zeroconf::start(9000);
 
     let tcp_client_manager = client_manager.clone();
     thread::spawn(move || {
-        client_ctrl::run(9000, tcp_client_manager);
+        tcp_json::run(9000, tcp_client_manager);
     });
 
     let ui_client_manager = client_manager.clone();

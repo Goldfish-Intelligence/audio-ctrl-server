@@ -1,6 +1,7 @@
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
 #[derive(Default, Clone, Deserialize, Serialize)]
@@ -37,17 +38,17 @@ pub enum ClientStateChange {
     RecvMute(bool),
     SendAudio(bool),
     RecvAudio(bool),
-    BatteryLogIntervalSecs(u32),
+    BatteryLogIntervalSecs(Option<u32>),
 }
 
 #[derive(Clone)]
 pub struct ClientManager {
     // state of currently connected clients
-    connected_clients: Arc<RwLock<HashMap<u16, ClientState>>>,
+    connected_clients: Arc<RwLock<HashMap<SocketAddr, ClientState>>>,
     // send session_id that was created, modified, deleted
-    change_sender: Sender<(u16, ClientStateChange)>,
+    change_sender: Sender<(SocketAddr, ClientStateChange)>,
     // get session_id that was created, modified, deleted
-    pub change_receiver: Receiver<(u16, ClientStateChange)>,
+    pub change_receiver: Receiver<(SocketAddr, ClientStateChange)>,
 }
 
 impl ClientManager {
@@ -61,7 +62,7 @@ impl ClientManager {
         }
     }
 
-    pub fn new_client(&mut self, session_id: u16) {
+    pub fn new_client(&mut self, session_id: SocketAddr) {
         let mut connected_clients = self.connected_clients.write().unwrap();
         connected_clients.insert(session_id, Default::default());
         self.change_sender
@@ -69,7 +70,7 @@ impl ClientManager {
             .unwrap();
     }
 
-    pub fn rm_client(&mut self, session_id: u16) {
+    pub fn rm_client(&mut self, session_id: SocketAddr) {
         let mut connected_clients = self.connected_clients.write().unwrap();
         let client_state = match connected_clients.get_mut(&session_id) {
             Some(client_state) => client_state.clone(),
@@ -83,7 +84,7 @@ impl ClientManager {
 
     pub fn set_client_property(
         &mut self,
-        session_id: u16,
+        session_id: SocketAddr,
         state_change: ClientStateChange,
     ) -> Result<(), &'static str> {
         let mut connected_clients = self.connected_clients.write().unwrap();
@@ -147,9 +148,8 @@ impl ClientManager {
                 client_state.recv_audio = Some(recv_audio)
             }
             ClientStateChange::BatteryLogIntervalSecs(battery_log_interval_secs) => {
-                has_changed = client_state.battery_log_interval_secs.as_ref()
-                    == Some(&battery_log_interval_secs);
-                client_state.battery_log_interval_secs = Some(battery_log_interval_secs)
+                has_changed = client_state.battery_log_interval_secs == battery_log_interval_secs;
+                client_state.battery_log_interval_secs = battery_log_interval_secs
             }
         }
         if has_changed {
@@ -158,7 +158,11 @@ impl ClientManager {
         Ok(())
     }
 
-    pub fn update_client(&mut self, session_id: u16, changed: ClientState) -> Result<(), String> {
+    pub fn update_client(
+        &mut self,
+        session_id: SocketAddr,
+        changed: ClientState,
+    ) -> Result<(), String> {
         let mut connected_clients = self.connected_clients.write().unwrap();
         let client_state = match connected_clients.get_mut(&session_id) {
             Some(client_state) => client_state.clone(),
@@ -263,21 +267,20 @@ impl ClientManager {
                     .unwrap();
             }
         }
-        if let Some(battery_log_interval_secs) = changed.battery_log_interval_secs {
-            if client_state.battery_log_interval_secs != changed.battery_log_interval_secs {
-                self.change_sender
-                    .send((
-                        session_id,
-                        ClientStateChange::BatteryLogIntervalSecs(battery_log_interval_secs),
-                    ))
-                    .unwrap();
-            }
+
+        if client_state.battery_log_interval_secs != changed.battery_log_interval_secs {
+            self.change_sender
+                .send((
+                    session_id,
+                    ClientStateChange::BatteryLogIntervalSecs(changed.battery_log_interval_secs),
+                ))
+                .unwrap();
         }
 
         Ok(())
     }
 
-    pub fn get_client(&mut self, session_id: u16) -> Result<ClientState, &'static str> {
+    pub fn get_client(&mut self, session_id: SocketAddr) -> Result<ClientState, &'static str> {
         let connected_clients = self.connected_clients.read().unwrap();
         match connected_clients.get(&session_id) {
             Some(client_state) => Ok((*client_state).clone()),
@@ -285,7 +288,7 @@ impl ClientManager {
         }
     }
 
-    pub fn get_session_id(&self, client_name: &str) -> Option<u16> {
+    pub fn get_session_id(&self, client_name: &str) -> Option<SocketAddr> {
         let connected_clients = self.connected_clients.read().unwrap();
         for (session_id, state) in connected_clients.iter() {
             if let Some(connected_client_name) = state.client_name.clone() {

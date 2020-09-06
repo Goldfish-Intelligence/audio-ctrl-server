@@ -9,7 +9,7 @@ pub fn start(port: u16) {
             .with_name("Gecko Audio Streaming")
             .build()
             .unwrap();
-        service.register(|_reply| ());
+        service.register(|_reply| ()).unwrap();
         loop {
             service.process_result();
         }

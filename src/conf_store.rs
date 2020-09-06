@@ -3,16 +3,13 @@ use notify::DebouncedEvent;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::fs::File;
 use std::io::BufReader;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Sender};
 use std::time::Duration;
 use std::{fs, thread};
 
-enum ConfChange {
-    FileChanged,
-}
-
-pub fn run(mut client_manager: ClientManager) {
+pub fn run(client_manager: ClientManager) {
     let (file_tx, file_rx) = channel();
     let mut watcher = watcher(file_tx, Duration::from_secs(1)).unwrap();
     watcher
@@ -107,7 +104,7 @@ fn read_config_file(file_path: PathBuf) -> Result<ClientState, String> {
 }
 
 fn handle_client_state_change(
-    session_id: u16,
+    session_id: SocketAddr,
     state_change: ClientStateChange,
     client_manager: &mut ClientManager,
 ) -> Result<(), String> {
