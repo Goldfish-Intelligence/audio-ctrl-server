@@ -79,7 +79,7 @@ pub fn run(client_manager: ClientManager) {
             })
             .unwrap();
 
-        if let Ok(input) = rx.try_recv() {
+        if let Ok(input) = rx.recv() {
             match input {
                 Redraw::Key(Key::Char('q')) => {
                     break;
