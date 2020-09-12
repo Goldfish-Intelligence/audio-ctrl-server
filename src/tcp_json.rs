@@ -35,7 +35,7 @@ enum MessagesFromServer {
 }
 
 pub fn run(port: u16, client_manager: ClientManager) {
-    let listener_v4 = TcpListener::bind(format!("0.0.0.0:{}", port)).unwrap();
+    //let listener_v4 = TcpListener::bind(format!("0.0.0.0:{}", port)).unwrap();
     let listener_v6 = TcpListener::bind(format!("[::]:{}", port)).unwrap();
 
     let send_streams: Arc<RwLock<HashMap<SocketAddr, TcpStream>>> = Default::default();
@@ -48,12 +48,12 @@ pub fn run(port: u16, client_manager: ClientManager) {
 
     let (tx, rx) = channel();
 
-    let v4_tx = tx.clone();
-    thread::spawn(move || {
-        for stream in listener_v4.incoming() {
-            v4_tx.send(stream).unwrap();
-        }
-    });
+    //let v4_tx = tx.clone();
+    //thread::spawn(move || {
+    //    for stream in listener_v4.incoming() {
+    //        v4_tx.send(stream).unwrap();
+    //    }
+    //});
 
     let v6_tx = tx.clone();
     thread::spawn(move || {
