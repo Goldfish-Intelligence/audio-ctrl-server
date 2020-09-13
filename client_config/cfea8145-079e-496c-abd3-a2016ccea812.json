@@ -1,0 +1,15 @@
+{
+  "client_name": "cfea8145-079e-496c-abd3-a2016ccea812",
+  "battery_level": null,
+  "is_charging": null,
+  "display_name": "Dev #1",
+  "recv_audio_port": null,
+  "recv_repair_port": null,
+  "send_audio_port": null,
+  "send_repair_port": null,
+  "send_mute": true,
+  "recv_mute": false,
+  "send_audio": null,
+  "recv_audio": null,
+  "battery_log_interval_secs": null
+}
