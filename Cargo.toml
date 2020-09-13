@@ -13,7 +13,5 @@ tui = "0.10"
 termion = "1.5"
 # https://docs.rs/astro-dnssd/0.1
 astro-dnssd = "0.1"
-# https://github.com/crossbeam-rs/crossbeam/tree/master/crossbeam-channel
-crossbeam-channel = "0.4"
 # https://docs.rs/notify/4.0.
 notify = "4.0"

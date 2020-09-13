@@ -10,7 +10,7 @@ use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
 use std::{io, thread};
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 enum MessageToServer {
     Hello(Hello),
@@ -23,7 +23,7 @@ enum MessageToServer {
     TransmitAudio(TransmitAudio),
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(tag = "type")]
 enum MessagesFromServer {
     //Ping,
@@ -200,8 +200,9 @@ fn handle_client_state_change(
     send_streams: Arc<RwLock<HashMap<SocketAddr, TcpStream>>>,
     mut client_manager: ClientManager,
 ) {
+    let client_state_change_receiver = client_manager.get_change_receiver();
     loop {
-        let (session_id, event) = client_manager.change_receiver.recv().unwrap();
+        let (session_id, event) = client_state_change_receiver.recv().unwrap();
         let state = match client_manager.get_client(session_id) {
             Ok(state) => state,
             Err(_) => continue, // probably disconnected
@@ -287,11 +288,13 @@ fn handle_client_state_change(
             }
         };
 
-        let mut send_streams = send_streams.write().unwrap();
-        let send_stream = send_streams.get_mut(&session_id).unwrap();
+        if let Some(msg) = msg {
+            let mut send_streams = send_streams.write().unwrap();
+            let send_stream = send_streams.get_mut(&session_id).unwrap();
 
-        if let Err(_e) = serde_json::to_writer_pretty(send_stream, &msg) {
-            // log e
-        };
+            if let Err(_e) = serde_json::to_writer_pretty(send_stream, &msg) {
+                // log e
+            };
+        }
     }
 }

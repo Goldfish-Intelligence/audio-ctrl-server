@@ -1,10 +1,11 @@
-use crossbeam_channel::{unbounded, Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex, RwLock};
+use std::thread;
 
-#[derive(Default, Clone, Deserialize, Serialize)]
+#[derive(Default, Clone, Deserialize, Serialize, Debug)]
 pub struct ClientState {
     pub client_name: Option<String>,
     pub battery_level: Option<f64>,
@@ -21,7 +22,7 @@ pub struct ClientState {
     pub battery_log_interval_secs: Option<u32>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ClientStateChange {
     Add,
     Remove(ClientState),
@@ -47,19 +48,39 @@ pub struct ClientManager {
     connected_clients: Arc<RwLock<HashMap<SocketAddr, ClientState>>>,
     // send session_id that was created, modified, deleted
     change_sender: Sender<(SocketAddr, ClientStateChange)>,
-    // get session_id that was created, modified, deleted
-    pub change_receiver: Receiver<(SocketAddr, ClientStateChange)>,
+    subscribers: Arc<Mutex<Vec<Sender<(SocketAddr, ClientStateChange)>>>>,
 }
 
 impl ClientManager {
     pub fn new() -> ClientManager {
-        let (sender, receiver) = unbounded();
+        let connected_clients = Arc::new(Default::default());
+        let (change_sender, change_receiver) = channel::<(SocketAddr, ClientStateChange)>();
+        let subscribers: Arc<Mutex<Vec<Sender<(SocketAddr, ClientStateChange)>>>> =
+            Default::default();
+
+        let subscribers_inner = subscribers.clone();
+        thread::spawn(move || loop {
+            let msg = change_receiver.recv().unwrap();
+            let subscribers_inner = subscribers_inner.lock().unwrap();
+            for sub in subscribers_inner.iter() {
+                sub.send(msg.clone()).unwrap();
+            }
+        });
 
         ClientManager {
-            connected_clients: Arc::new(Default::default()),
-            change_sender: sender,
-            change_receiver: receiver,
+            connected_clients,
+            change_sender,
+            subscribers,
         }
+    }
+
+    pub fn get_change_receiver(&self) -> Receiver<(SocketAddr, ClientStateChange)> {
+        let (sender, receiver) = channel();
+
+        let mut subscribers = self.subscribers.lock().unwrap();
+        subscribers.push(sender);
+
+        receiver
     }
 
     pub fn new_client(&mut self, session_id: SocketAddr) {
@@ -100,55 +121,55 @@ impl ClientManager {
                 return Err("Remove and Add not supported");
             }
             ClientStateChange::ClientName(client_name) => {
-                has_changed = client_state.client_name.as_ref() == Some(&client_name);
+                has_changed = client_state.client_name.as_ref() != Some(&client_name);
                 client_state.client_name = Some(client_name);
             }
             ClientStateChange::BatteryLevel(battery_level) => {
-                has_changed = client_state.battery_level.as_ref() == Some(&battery_level);
+                has_changed = client_state.battery_level.as_ref() != Some(&battery_level);
                 client_state.battery_level = Some(battery_level)
             }
             ClientStateChange::IsCharging(is_charging) => {
-                has_changed = client_state.is_charging.as_ref() == Some(&is_charging);
+                has_changed = client_state.is_charging.as_ref() != Some(&is_charging);
                 client_state.is_charging = Some(is_charging)
             }
             ClientStateChange::DisplayName(display_name) => {
-                has_changed = client_state.display_name.as_ref() == Some(&display_name);
+                has_changed = client_state.display_name.as_ref() != Some(&display_name);
                 client_state.display_name = Some(display_name)
             }
             ClientStateChange::RecvAudioPort(recv_audio_port) => {
-                has_changed = client_state.recv_audio_port.as_ref() == Some(&recv_audio_port);
+                has_changed = client_state.recv_audio_port.as_ref() != Some(&recv_audio_port);
                 client_state.recv_audio_port = Some(recv_audio_port)
             }
             ClientStateChange::RecvRepairPort(recv_repair_port) => {
-                has_changed = client_state.recv_repair_port.as_ref() == Some(&recv_repair_port);
+                has_changed = client_state.recv_repair_port.as_ref() != Some(&recv_repair_port);
                 client_state.recv_repair_port = Some(recv_repair_port)
             }
             ClientStateChange::SendAudioPort(send_audio_port) => {
-                has_changed = client_state.send_audio_port.as_ref() == Some(&send_audio_port);
+                has_changed = client_state.send_audio_port.as_ref() != Some(&send_audio_port);
                 client_state.send_audio_port = Some(send_audio_port)
             }
             ClientStateChange::SendRepairPort(send_repair_port) => {
-                has_changed = client_state.send_repair_port.as_ref() == Some(&send_repair_port);
+                has_changed = client_state.send_repair_port.as_ref() != Some(&send_repair_port);
                 client_state.send_repair_port = Some(send_repair_port)
             }
             ClientStateChange::SendMute(send_mute) => {
-                has_changed = client_state.send_mute.as_ref() == Some(&send_mute);
+                has_changed = client_state.send_mute.as_ref() != Some(&send_mute);
                 client_state.send_mute = Some(send_mute)
             }
             ClientStateChange::RecvMute(recv_mute) => {
-                has_changed = client_state.recv_mute.as_ref() == Some(&recv_mute);
+                has_changed = client_state.recv_mute.as_ref() != Some(&recv_mute);
                 client_state.recv_mute = Some(recv_mute)
             }
             ClientStateChange::SendAudio(send_audio) => {
-                has_changed = client_state.send_audio.as_ref() == Some(&send_audio);
+                has_changed = client_state.send_audio.as_ref() != Some(&send_audio);
                 client_state.send_audio = Some(send_audio)
             }
             ClientStateChange::RecvAudio(recv_audio) => {
-                has_changed = client_state.recv_audio.as_ref() == Some(&recv_audio);
+                has_changed = client_state.recv_audio.as_ref() != Some(&recv_audio);
                 client_state.recv_audio = Some(recv_audio)
             }
             ClientStateChange::BatteryLogIntervalSecs(battery_log_interval_secs) => {
-                has_changed = client_state.battery_log_interval_secs == battery_log_interval_secs;
+                has_changed = client_state.battery_log_interval_secs != battery_log_interval_secs;
                 client_state.battery_log_interval_secs = battery_log_interval_secs
             }
         }
