@@ -1,7 +1,6 @@
 use crate::client_state::ClientManager;
 use crate::ui::Redraw::ClientState;
 use std::sync::mpsc;
-use std::time::Duration;
 use std::{io, thread};
 use termion::event::Key;
 use termion::input::TermRead;
@@ -34,8 +33,9 @@ pub fn run(client_manager: ClientManager) {
     });
 
     let client_tx = tx.clone();
+    let client_state_change = client_manager.get_change_receiver();
     thread::spawn(move || loop {
-        thread::sleep(Duration::from_secs(2));
+        client_state_change.recv().unwrap();
         client_tx.send(ClientState).unwrap();
     });
 
