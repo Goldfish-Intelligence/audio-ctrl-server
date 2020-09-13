@@ -1,7 +1,7 @@
 use crate::client_state::{ClientManager, ClientState, ClientStateChange};
 use notify::DebouncedEvent;
 use notify::{watcher, RecursiveMode, Watcher};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::BufReader;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -64,21 +64,17 @@ pub fn run(client_manager: ClientManager) {
     });
 
     let mut client_manager_state_change = client_manager.clone();
+    let client_state_change_receiver = client_manager.get_change_receiver();
 
-    thread::spawn(move || {
-        loop {
-            let (session_id, state_change) =
-                client_manager_state_change.change_receiver.recv().unwrap();
-            if let Err(_e) = handle_client_state_change(
-                session_id,
-                state_change,
-                &mut client_manager_state_change,
-            ) {
+    loop {
+        let (session_id, state_change) = client_state_change_receiver.recv().unwrap();
+        if let Err(_e) =
+            handle_client_state_change(session_id, state_change, &mut client_manager_state_change)
+        {
 
-                //log(e)
-            }
+            //log(e)
         }
-    });
+    }
 }
 
 fn read_config_file(file_path: PathBuf) -> Result<ClientState, String> {
@@ -91,7 +87,13 @@ fn read_config_file(file_path: PathBuf) -> Result<ClientState, String> {
         }
     }
 
-    let file = match File::open(file_path) {
+    let file = OpenOptions::new()
+        .read(true)
+        .create(true)
+        .write(true)
+        .open(file_path);
+
+    let file = match file {
         Ok(res) => res,
         Err(e) => Err(e.to_string())?,
     };
