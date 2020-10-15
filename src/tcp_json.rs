@@ -9,6 +9,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
 use std::{io, thread};
+use std::io::Write;
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
@@ -80,7 +81,7 @@ fn handle_client(
     mut client_manager: ClientManager,
 ) -> Result<(), String> {
     let session_id = match stream.as_ref() {
-        Ok(stream) => match stream.local_addr() {
+        Ok(stream) => match stream.peer_addr() {
             Ok(addr) => addr.clone(),
             Err(e) => Err(e.to_string())?,
         },
@@ -290,11 +291,16 @@ fn handle_client_state_change(
 
         if let Some(msg) = msg {
             let mut send_streams = send_streams.write().unwrap();
-            let send_stream = send_streams.get_mut(&session_id).unwrap();
+            {
+                let send_stream = send_streams.get_mut(&session_id).unwrap();
 
-            if let Err(_e) = serde_json::to_writer_pretty(send_stream, &msg) {
-                // log e
-            };
+                if let Err(_e) = serde_json::to_writer(send_stream, &msg) {
+                    // log e
+                };
+            }
+            {
+                send_streams.get_mut(&session_id).unwrap().write(b"\n").unwrap();
+            }
         }
     }
 }
